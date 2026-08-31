@@ -1,0 +1,18 @@
+{
+  "description": "SOLUTE-MANAGED: activates the Solute policy for Sol user turns. Remove with codex plugin remove solute@solute.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"$PLUGIN_ROOT/scripts/solute_hook.sh\"",
+            "commandWindows": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"$env:PLUGIN_ROOT\\scripts\\solute_hook.ps1\"",
+            "timeout": 5,
+            "additionalContextLimit": 1200
+          }
+        ]
+      }
+    ]
+  }
+}

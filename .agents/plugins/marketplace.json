@@ -1,0 +1,20 @@
+{
+  "name": "solute",
+  "interface": {
+    "displayName": "Solute"
+  },
+  "plugins": [
+    {
+      "name": "solute",
+      "source": {
+        "source": "local",
+        "path": "./plugins/solute"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

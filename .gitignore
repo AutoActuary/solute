@@ -1,0 +1,4 @@
+# SOLUTE-MANAGED: repository-only ignore rules.
+__pycache__/
+*.py[cod]
+.tmp/

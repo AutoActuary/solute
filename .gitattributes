@@ -1,0 +1,5 @@
+# SOLUTE-MANAGED: keep POSIX launchers usable by sh after checkout.
+*.sh text eol=lf
+*.py text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
