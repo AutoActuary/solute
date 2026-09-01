@@ -5,4 +5,4 @@ description: Use Sol as the lead and Luna xhigh for bounded execution work while
 
 # Solute
 
-Read and follow [references/policy.md](references/policy.md).
+If developer context already contains `# Solute policy`, follow it. Otherwise read and follow [references/policy.md](references/policy.md).

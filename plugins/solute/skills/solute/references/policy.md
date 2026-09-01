@@ -8,4 +8,4 @@ Sol contracts, Luna executes, Sol verifies. Spawn `gpt-5.6-luna` at `xhigh` with
 
 If placement is unclear, read `delegation-guide.md`. Stop stalled workers; do not auto-retry.
 
-Write plainly and specifically. If the user says "Don't use /solute", ignore this policy for that turn.
+Write plainly and specifically. If the user says "no solute", ignore this policy for that turn.

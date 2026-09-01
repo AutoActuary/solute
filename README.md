@@ -6,7 +6,9 @@ Sol judgment, Luna execution.
 
 Solute is a Codex plugin that gives every Sol user turn a compact delegation policy. Sol keeps problem framing, design, integration, and final judgment. Luna xhigh handles bounded work that Sol can brief and verify cheaply.
 
-It sends no policy tokens to Terra or Luna. Codex still starts the small native gate because `UserPromptSubmit` does not support model matchers. Say `Don't use /solute` to disable it for one turn. Invoke `$solute` directly when you want the same policy without automatic activation.
+It sends no policy tokens to Terra or Luna. Codex still starts the small native gate because `UserPromptSubmit` does not support model matchers. Say `no solute` to disable it for one turn. Avoid `$solute` and `/solute` in an opt-out because the composer can treat them as explicit skill invocations.
+
+The plugin is the installable package. Its bundled skill provides the optional `$solute` invocation supported by Codex. Automatic Sol activation comes from the plugin hook, not implicit skill selection.
 
 ## Supported systems
 

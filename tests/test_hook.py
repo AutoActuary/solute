@@ -54,9 +54,14 @@ class HookTests(unittest.TestCase):
 
     def test_optout_is_case_insensitive_and_accepts_skill_forms(self) -> None:
         prompts = (
+            "No solute for this one",
+            "NO /SOLUTE",
+            "No $solute today",
             "Don't use /solute for this one",
             "DO NOT USE SOLUTE",
             "Please don't use $solute today",
+            "No [$solute:solute](C:/plugins/solute/skills/solute/SKILL.md)",
+            "Don’t use [$solute](C:/skills/solute/SKILL.md)",
         )
         for prompt in prompts:
             with self.subTest(prompt=prompt):
@@ -65,7 +70,7 @@ class HookTests(unittest.TestCase):
     def test_policy_uses_absolute_guide_path(self) -> None:
         payload = json.loads(run_hook("gpt-5.6-sol").stdout)
         context = payload["hookSpecificOutput"]["additionalContext"]
-        self.assertIn("Don't use /solute", context)
+        self.assertIn('says "no solute"', context)
         self.assertNotIn("`delegation-guide.md`", context)
         self.assertIn(str(PLUGIN_ROOT / "skills/solute/references/delegation-guide.md"), context)
 

@@ -13,8 +13,15 @@ fn is_sol_model(model: &str) -> bool {
 }
 
 fn opted_out(prompt: &str) -> bool {
-    let prompt = prompt.to_ascii_lowercase();
+    let prompt = prompt
+        .to_ascii_lowercase()
+        .replace("don’t use", "don't use")
+        .replace("[$solute:solute]", "$solute")
+        .replace("[$solute]", "$solute");
     [
+        "no solute",
+        "no /solute",
+        "no $solute",
         "don't use solute",
         "don't use /solute",
         "don't use $solute",
@@ -101,9 +108,14 @@ mod tests {
     #[test]
     fn opt_out_forms_are_case_insensitive() {
         for prompt in [
+            "No solute for this one",
+            "NO /SOLUTE",
+            "No $solute today",
             "Don't use /solute for this one",
             "DO NOT USE SOLUTE",
             "Please don't use $solute today",
+            "No [$solute:solute](C:/plugins/solute/skills/solute/SKILL.md)",
+            "Don’t use [$solute](C:/skills/solute/SKILL.md)",
         ] {
             assert!(opted_out(prompt), "{prompt}");
         }
