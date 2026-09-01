@@ -6,9 +6,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"$PLUGIN_ROOT/scripts/solute_hook.sh\"",
-            "commandWindows": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"$env:PLUGIN_ROOT\\scripts\\solute_hook.ps1\"",
-            "timeout": 5,
+            "command": "\"$PLUGIN_ROOT/bin/solute-hook\"",
+            "commandWindows": "cmd.exe /d /c call \"%PLUGIN_ROOT%\\bin\\solute-hook.exe\"",
+            "timeout": 1,
             "additionalContextLimit": 1200
           }
         ]

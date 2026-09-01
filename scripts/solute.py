@@ -5,11 +5,15 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import platform
 import shutil
+import stat
 import subprocess
 import sys
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +21,8 @@ from typing import Any
 PLUGIN = "solute"
 MARKETPLACE = "solute"
 MARKETPLACE_FILE = Path(".agents/plugins/marketplace.json")
+RUNTIME_VERSION = "v0.2.0"
+RUNTIME_REPOSITORY = "https://github.com/AutoActuary/solute/releases/download"
 
 
 def repo_root() -> Path:
@@ -70,6 +76,124 @@ def run_codex(*args: str, check: bool = True) -> subprocess.CompletedProcess[str
     )
 
 
+def runtime_asset() -> str:
+    system = platform.system().lower()
+    machine = platform.machine().lower()
+    architecture = {
+        "amd64": "x86_64",
+        "x86_64": "x86_64",
+        "arm64": "aarch64",
+        "aarch64": "aarch64",
+    }.get(machine)
+    supported = {
+        ("windows", "x86_64"),
+        ("windows", "aarch64"),
+        ("linux", "x86_64"),
+        ("linux", "aarch64"),
+        ("darwin", "x86_64"),
+        ("darwin", "aarch64"),
+    }
+    if architecture is None or (system, architecture) not in supported:
+        raise RuntimeError(f"No Solute runtime for {system}/{machine}.")
+    suffix = ".exe" if system == "windows" else ""
+    return f"solute-hook-{system}-{architecture}{suffix}"
+
+
+def runtime_paths() -> tuple[Path, Path]:
+    suffix = ".exe" if os.name == "nt" else ""
+    directory = repo_root() / "plugins/solute/bin"
+    return directory / f"solute-hook{suffix}", directory / "runtime-version.txt"
+
+
+def ensure_runtime() -> Path:
+    target, marker = runtime_paths()
+    supplied = os.environ.get("SOLUTE_RUNTIME_BINARY")
+    if supplied:
+        source = Path(supplied).resolve()
+        if not source.is_file():
+            raise RuntimeError(f"SOLUTE_RUNTIME_BINARY does not exist: {source}")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+    else:
+        if target.is_file() and marker.is_file():
+            if marker.read_text(encoding="utf-8").strip() == RUNTIME_VERSION:
+                return target
+        target.parent.mkdir(parents=True, exist_ok=True)
+        asset = runtime_asset()
+        base = f"{RUNTIME_REPOSITORY}/{RUNTIME_VERSION}/{asset}"
+        try:
+            binary = urllib.request.urlopen(base, timeout=30).read()
+            checksum = urllib.request.urlopen(f"{base}.sha256", timeout=30).read().decode()
+        except OSError as exc:
+            raise RuntimeError(f"Could not download the native Solute runtime: {exc}") from exc
+        expected = checksum.split()[0].lower()
+        actual = hashlib.sha256(binary).hexdigest()
+        if actual != expected:
+            raise RuntimeError("Downloaded Solute runtime failed its SHA-256 check.")
+        target.write_bytes(binary)
+
+    if os.name != "nt":
+        target.chmod(target.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    marker.write_text(f"{RUNTIME_VERSION}\n", encoding="utf-8")
+    return target
+
+
+def app_server_request(method: str, params: dict[str, Any]) -> Any:
+    command = find_codex()
+    if command is None:
+        raise RuntimeError("Codex CLI is not on PATH.")
+    process = subprocess.Popen(
+        [*command, "app-server", "--stdio"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+    )
+    assert process.stdin and process.stdout
+
+    def send(message: dict[str, Any]) -> None:
+        process.stdin.write(json.dumps(message) + "\n")
+        process.stdin.flush()
+
+    def receive(response_id: int) -> Any:
+        for _ in range(20):
+            line = process.stdout.readline()
+            if not line:
+                break
+            response = json.loads(line)
+            if response.get("id") == response_id:
+                if "error" in response:
+                    raise RuntimeError(str(response["error"]))
+                return response.get("result")
+        raise RuntimeError("Codex app server did not return a hook status.")
+
+    try:
+        send(
+            {
+                "method": "initialize",
+                "id": 0,
+                "params": {
+                    "clientInfo": {
+                        "name": "solute_doctor",
+                        "title": "Solute doctor",
+                        "version": "0.2.0",
+                    }
+                },
+            }
+        )
+        receive(0)
+        send({"method": "initialized", "params": {}})
+        send({"method": method, "id": 1, "params": params})
+        return receive(1)
+    finally:
+        process.terminate()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+
+
 def parse_json_output(result: subprocess.CompletedProcess[str]) -> Any:
     return json.loads(result.stdout or "{}")
 
@@ -82,6 +206,7 @@ def marketplace_entries() -> list[dict[str, Any]]:
 
 def install() -> int:
     root = repo_root()
+    ensure_runtime()
     expected = root.resolve()
     existing = next((m for m in marketplace_entries() if m.get("name") == MARKETPLACE), None)
     if existing:
@@ -94,7 +219,11 @@ def install() -> int:
     else:
         run_codex("plugin", "marketplace", "add", str(root), "--json")
     run_codex("plugin", "add", f"{PLUGIN}@{MARKETPLACE}", "--json")
-    print("Solute installed. Review and trust its hook in Codex, then start a new task.")
+    print(
+        "Solute files are installed, but automatic activation is not complete yet.\n"
+        "Start a new Codex CLI session, enter /hooks, review the Solute hook, and choose Trust.\n"
+        "Then run this launcher with 'verify'."
+    )
     return doctor()
 
 
@@ -120,19 +249,22 @@ def uninstall() -> int:
             failures.append(f"{label}: {(result.stderr or result.stdout).strip()}")
     if failures:
         raise RuntimeError("Solute uninstall failed: " + "; ".join(failures))
+    runtime_directory = repo_root() / "plugins/solute/bin"
+    if runtime_directory.is_dir():
+        shutil.rmtree(runtime_directory)
     print("Solute plugin and marketplace registration removed. Start a new task.")
     return 0
 
 
 def doctor() -> int:
     root = repo_root()
+    ensure_runtime()
     required = [
         root / MARKETPLACE_FILE,
         root / "plugins/solute/.codex-plugin/plugin.json",
         root / "plugins/solute/hooks/hooks.json",
-        root / "plugins/solute/scripts/solute_hook.py",
-        root / "plugins/solute/scripts/solute_hook.sh",
-        root / "plugins/solute/scripts/solute_hook.ps1",
+        runtime_paths()[0],
+        runtime_paths()[1],
         root / "plugins/solute/skills/solute/SKILL.md",
         root / "plugins/solute/skills/solute/references/policy.md",
         root / "plugins/solute/skills/solute/references/delegation-guide.md",
@@ -158,12 +290,41 @@ def doctor() -> int:
     return 0
 
 
+def verify() -> int:
+    if doctor() != 0:
+        return 1
+    payload = app_server_request("hooks/list", {"cwds": [str(repo_root())]})
+    hooks = [
+        hook
+        for entry in payload.get("data", [])
+        for hook in entry.get("hooks", [])
+        if hook.get("pluginId") == f"{PLUGIN}@{MARKETPLACE}"
+        and hook.get("eventName") == "userPromptSubmit"
+    ]
+    if hooks and hooks[0].get("enabled") and hooks[0].get("trustStatus") == "trusted":
+        print("Solute verified: its hook is enabled and trusted for Sol turns.")
+        return 0
+    status = hooks[0].get("trustStatus", "missing") if hooks else "missing"
+    print(
+        f"Solute automatic activation is not ready. Hook status: {status}.\n"
+        "Start a new Codex CLI session, enter /hooks, review the Solute hook, and choose Trust.\n"
+        "Run this verification again afterward.",
+        file=sys.stderr,
+    )
+    return 1
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Install, remove, or check Solute.")
-    parser.add_argument("command", choices=("install", "uninstall", "doctor"))
+    parser.add_argument("command", choices=("install", "uninstall", "doctor", "verify"))
     args = parser.parse_args()
     try:
-        return {"install": install, "uninstall": uninstall, "doctor": doctor}[args.command]()
+        return {
+            "install": install,
+            "uninstall": uninstall,
+            "doctor": doctor,
+            "verify": verify,
+        }[args.command]()
     except (OSError, RuntimeError, subprocess.CalledProcessError, json.JSONDecodeError) as exc:
         print(f"Solute {args.command} failed: {exc}", file=sys.stderr)
         return 1

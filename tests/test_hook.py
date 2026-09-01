@@ -2,39 +2,55 @@
 
 from __future__ import annotations
 
-import importlib.util
 import json
+import os
 import subprocess
-import sys
 import unittest
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-HOOK_PATH = ROOT / "plugins/solute/scripts/solute_hook.py"
-SPEC = importlib.util.spec_from_file_location("solute_hook", HOOK_PATH)
-assert SPEC and SPEC.loader
-HOOK = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(HOOK)
+PLUGIN_ROOT = ROOT / "plugins/solute"
+
+
+def hook_command() -> list[str]:
+    suffix = ".exe" if os.name == "nt" else ""
+    runtime = PLUGIN_ROOT / f"bin/solute-hook{suffix}"
+    if not runtime.is_file():
+        raise unittest.SkipTest("Solute runtime is not staged")
+    return [str(runtime)]
+
+
+def run_hook(model: str, prompt: str = "Fix the failing tests") -> subprocess.CompletedProcess[str]:
+    event = {
+        "hook_event_name": "UserPromptSubmit",
+        "model": model,
+        "prompt": prompt,
+    }
+    env = os.environ.copy()
+    env["PLUGIN_ROOT"] = str(PLUGIN_ROOT)
+    return subprocess.run(
+        hook_command(),
+        input=json.dumps(event),
+        env=env,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
 
 
 class HookTests(unittest.TestCase):
-    def event(self, model: str, prompt: str = "Fix the failing tests") -> dict[str, str]:
-        return {
-            "hook_event_name": "UserPromptSubmit",
-            "model": model,
-            "prompt": prompt,
-        }
-
     def test_activates_for_current_and_future_sol_slugs(self) -> None:
         for model in ("gpt-5.6-sol", "gpt-5.7-sol", "vendor-sol-preview", "sol"):
             with self.subTest(model=model):
-                self.assertTrue(HOOK.should_activate(self.event(model)))
+                payload = json.loads(run_hook(model).stdout)
+                context = payload["hookSpecificOutput"]["additionalContext"]
+                self.assertIn("Use Luna xhigh", context)
 
     def test_does_not_activate_for_other_models(self) -> None:
         for model in ("gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5", ""):
             with self.subTest(model=model):
-                self.assertFalse(HOOK.should_activate(self.event(model)))
+                self.assertEqual(run_hook(model).stdout, "")
 
     def test_optout_is_case_insensitive_and_accepts_skill_forms(self) -> None:
         prompts = (
@@ -44,32 +60,14 @@ class HookTests(unittest.TestCase):
         )
         for prompt in prompts:
             with self.subTest(prompt=prompt):
-                self.assertFalse(HOOK.should_activate(self.event("gpt-5.6-sol", prompt)))
+                self.assertEqual(run_hook("gpt-5.6-sol", prompt).stdout, "")
 
-    def test_subprocess_emits_policy_as_hook_json(self) -> None:
-        result = subprocess.run(
-            [sys.executable, str(HOOK_PATH)],
-            input=json.dumps(self.event("gpt-5.6-sol")),
-            text=True,
-            capture_output=True,
-            check=True,
-        )
-        payload = json.loads(result.stdout)
+    def test_policy_uses_absolute_guide_path(self) -> None:
+        payload = json.loads(run_hook("gpt-5.6-sol").stdout)
         context = payload["hookSpecificOutput"]["additionalContext"]
-        self.assertIn("Use Luna xhigh", context)
         self.assertIn("Don't use /solute", context)
         self.assertNotIn("`delegation-guide.md`", context)
-        self.assertIn(str(HOOK.guide_path()), context)
-
-    def test_subprocess_is_silent_when_disabled(self) -> None:
-        result = subprocess.run(
-            [sys.executable, str(HOOK_PATH)],
-            input=json.dumps(self.event("gpt-5.6-terra")),
-            text=True,
-            capture_output=True,
-            check=True,
-        )
-        self.assertEqual(result.stdout, "")
+        self.assertIn(str(PLUGIN_ROOT / "skills/solute/references/delegation-guide.md"), context)
 
 
 if __name__ == "__main__":

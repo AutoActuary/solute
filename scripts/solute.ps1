@@ -1,7 +1,7 @@
 # SOLUTE-MANAGED: Windows installer and uninstaller launcher.
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('install', 'uninstall', 'doctor')]
+    [ValidateSet('install', 'uninstall', 'doctor', 'verify')]
     [string]$Command
 )
 

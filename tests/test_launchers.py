@@ -36,19 +36,11 @@ def manager_command(action: str) -> list[str]:
 
 
 def hook_command() -> list[str]:
-    if os.name == "nt":
-        shell = powershell()
-        if shell is None:
-            raise unittest.SkipTest("PowerShell is unavailable")
-        return [
-            shell,
-            "-NoProfile",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-File",
-            str(PLUGIN_ROOT / "scripts/solute_hook.ps1"),
-        ]
-    return ["sh", str(PLUGIN_ROOT / "scripts/solute_hook.sh")]
+    suffix = ".exe" if os.name == "nt" else ""
+    runtime = PLUGIN_ROOT / f"bin/solute-hook{suffix}"
+    if not runtime.is_file():
+        raise unittest.SkipTest("Solute runtime is not staged")
+    return [str(runtime)]
 
 
 class LauncherTests(unittest.TestCase):
@@ -87,9 +79,12 @@ class LauncherTests(unittest.TestCase):
             "model": "gpt-5.6-terra",
             "prompt": "Fix the failing test",
         }
+        env = os.environ.copy()
+        env["PLUGIN_ROOT"] = str(PLUGIN_ROOT)
         result = subprocess.run(
             hook_command(),
             input=json.dumps(event),
+            env=env,
             text=True,
             capture_output=True,
             check=True,

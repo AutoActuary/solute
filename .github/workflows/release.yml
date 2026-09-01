@@ -1,0 +1,75 @@
+# SOLUTE-MANAGED: reproducible native hook release builds.
+name: Release native hook
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            asset: solute-hook-windows-x86_64.exe
+            binary: native-hook/target/x86_64-pc-windows-msvc/release/solute-hook.exe
+          - os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            asset: solute-hook-windows-aarch64.exe
+            binary: native-hook/target/aarch64-pc-windows-msvc/release/solute-hook.exe
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            asset: solute-hook-linux-x86_64
+            binary: native-hook/target/x86_64-unknown-linux-gnu/release/solute-hook
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            asset: solute-hook-linux-aarch64
+            binary: native-hook/target/aarch64-unknown-linux-gnu/release/solute-hook
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            asset: solute-hook-darwin-x86_64
+            binary: native-hook/target/x86_64-apple-darwin/release/solute-hook
+          - os: macos-15
+            target: aarch64-apple-darwin
+            asset: solute-hook-darwin-aarch64
+            binary: native-hook/target/aarch64-apple-darwin/release/solute-hook
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup target add ${{ matrix.target }}
+      - run: cargo build --release --manifest-path native-hook/Cargo.toml --target ${{ matrix.target }}
+      - name: Stage asset and checksum
+        shell: python
+        run: |
+          import hashlib
+          from pathlib import Path
+          source = Path(r"${{ matrix.binary }}")
+          target = Path(r"dist/${{ matrix.asset }}")
+          target.parent.mkdir(parents=True, exist_ok=True)
+          target.write_bytes(source.read_bytes())
+          digest = hashlib.sha256(target.read_bytes()).hexdigest()
+          target.with_name(target.name + ".sha256").write_text(
+              f"{digest}  {target.name}\n", encoding="ascii"
+          )
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/*
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --generate-notes

@@ -1,0 +1,16 @@
+[package]
+name = "solute-hook"
+version = "0.2.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[dependencies]
+serde_json = "1"
+
+[profile.release]
+codegen-units = 1
+lto = true
+panic = "abort"
+strip = true
+

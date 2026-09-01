@@ -2,3 +2,5 @@
 __pycache__/
 *.py[cod]
 .tmp/
+native-hook/target/
+plugins/solute/bin/

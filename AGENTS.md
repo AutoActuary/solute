@@ -9,7 +9,7 @@ Windows: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/solute.
 Linux/macOS: sh scripts/solute.sh install
 ```
 
-Use the same launcher with `doctor` to check the result. When the user asks to remove or uninstall Solute, run it with `uninstall`. If the repository is unavailable, run:
+After installation, tell the user to open a new Codex CLI session, enter `/hooks`, review the Solute hook, and choose Trust. Then use the launcher with `verify`. Do not claim automatic activation until verification prints `Solute verified`. When the user asks to remove or uninstall Solute, run the launcher with `uninstall`. If the repository is unavailable, run:
 
 ```text
 codex plugin remove solute@solute
@@ -18,4 +18,4 @@ codex plugin marketplace remove solute
 
 Do not edit global `AGENTS.md` or copy Solute files into loose user directories. Preserve unrelated Codex settings and plugins.
 
-For repository changes, use an available Python 3 interpreter to run `-m unittest discover -s tests -v` and the validators named in `README.md`.
+For repository changes, run the Rust and Python tests plus the validators named in `README.md`.

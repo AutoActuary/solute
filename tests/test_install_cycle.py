@@ -45,6 +45,8 @@ class InstallCycleTests(unittest.TestCase):
                     os.environ.pop("CODEX_HOME", None)
                 else:
                     os.environ["CODEX_HOME"] = previous
+                if os.environ.get("SOLUTE_RUNTIME_BINARY"):
+                    MANAGER.ensure_runtime()
 
 
 if __name__ == "__main__":

@@ -20,9 +20,17 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
+      - name: Build native hook
+        run: cargo build --release --manifest-path native-hook/Cargo.toml
       - name: Install Codex CLI
         run: npm install --global @openai/codex
       - name: Run tests
         run: python -m unittest discover -s tests -v
+        env:
+          SOLUTE_RUNTIME_BINARY: ${{ runner.os == 'Windows' && format('{0}/native-hook/target/release/solute-hook.exe', github.workspace) || format('{0}/native-hook/target/release/solute-hook', github.workspace) }}
+      - name: Run Rust tests
+        run: cargo test --manifest-path native-hook/Cargo.toml
       - name: Run doctor
         run: python scripts/solute.py doctor
+        env:
+          SOLUTE_RUNTIME_BINARY: ${{ runner.os == 'Windows' && format('{0}/native-hook/target/release/solute-hook.exe', github.workspace) || format('{0}/native-hook/target/release/solute-hook', github.workspace) }}
