@@ -21,7 +21,7 @@ from typing import Any
 PLUGIN = "solute"
 MARKETPLACE = "solute"
 MARKETPLACE_FILE = Path(".agents/plugins/marketplace.json")
-RUNTIME_VERSION = "v0.2.1"
+RUNTIME_VERSION = "v0.2.2"
 RUNTIME_REPOSITORY = "https://github.com/AutoActuary/solute/releases/download"
 
 
@@ -177,7 +177,7 @@ def app_server_request(method: str, params: dict[str, Any]) -> Any:
                     "clientInfo": {
                         "name": "solute_doctor",
                         "title": "Solute doctor",
-                        "version": "0.2.1",
+                        "version": "0.2.2",
                     }
                 },
             }
