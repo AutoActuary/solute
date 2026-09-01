@@ -1,6 +1,6 @@
 {
   "name": "solute",
-  "version": "0.2.1+codex.20260901103921",
+  "version": "0.2.1+codex.20260901105929",
   "description": "Sol-led orchestration using Luna for bounded task execution. Remove with: codex plugin remove solute@solute",
   "author": {
     "name": "AutoActuary",

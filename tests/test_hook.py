@@ -70,7 +70,8 @@ class HookTests(unittest.TestCase):
     def test_policy_uses_absolute_guide_path(self) -> None:
         payload = json.loads(run_hook("gpt-5.6-sol").stdout)
         context = payload["hookSpecificOutput"]["additionalContext"]
-        self.assertIn('says "no solute"', context)
+        self.assertIn("do not start or continue Luna subagents", context)
+        self.assertIn("ignore their results for that turn", context)
         self.assertNotIn("`delegation-guide.md`", context)
         self.assertIn(str(PLUGIN_ROOT / "skills/solute/references/delegation-guide.md"), context)
 
